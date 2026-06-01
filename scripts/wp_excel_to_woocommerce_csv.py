@@ -175,6 +175,14 @@ def as_bool_flag(value: Any, default: str = "1") -> str:
     return default
 
 
+def is_empty_row(values: list[Any]) -> bool:
+    return not any(cell not in (None, "") for cell in values)
+
+
+def published_flag(publication_status: str) -> str:
+    return "0" if publication_status == "draft" else "1"
+
+
 def build_header_map(headers: list[str]) -> dict[str, int]:
     normalized = {normalize_header(header): index for index, header in enumerate(headers)}
     result: dict[str, int] = {}
@@ -315,7 +323,7 @@ def convert_workbook(
         manifest_writer.writeheader()
 
         for row in rows[1:]:
-            if not any(cell not in (None, "") for cell in row):
+            if is_empty_row(list(row)):
                 continue
 
             title = as_text(get_cell(row, header_map, "title"))
@@ -457,7 +465,7 @@ def convert_workbook(
             products_writer.writerow(
                 {
                     "Type": "simple",
-                    "Published": "0" if publication_status == "draft" else "1",
+                    "Published": published_flag(publication_status),
                     "Name": title,
                     "Slug": slug,
                     "SKU": sku,
@@ -520,7 +528,8 @@ def update_workbook_status(
     mode_column = find_or_create_column(sheet, "publish_mode")
     now_text = datetime.now().strftime("%Y-%m-%d %H:%M")
     for row_number in range(2, sheet.max_row + 1):
-        if not any(sheet.cell(row_number, column).value not in (None, "") for column in range(1, sheet.max_column + 1)):
+        row_values = [sheet.cell(row_number, column).value for column in range(1, sheet.max_column + 1)]
+        if is_empty_row(row_values):
             continue
         sheet.cell(row_number, status_column).value = status_value
         sheet.cell(row_number, date_column).value = now_text

@@ -47,6 +47,15 @@
 
 ### Task 005
 
+- Status: done
+- Title: Double-click launcher without console
+- Goal: Let the user open the desktop app without using PowerShell or a visible command prompt.
+- What to do: Add a `.vbs` launcher, keep the `.cmd` fallback for diagnostics, and document the preferred launcher.
+- Files: `Open Product Import App.vbs`, `Start Product Import App.cmd`, `README.md`, `START_HERE.md`, `TASKS.md`, `CHANGELOG.md`
+- How to verify: Run `python -m unittest discover -s .\tests` and import the Tkinter app module.
+
+### Task 006
+
 - Status: open
 - Title: Upload files to WordPress automatically
 - Goal: Upload listing images and ZIP files to WordPress, then create/update products through WooCommerce API.

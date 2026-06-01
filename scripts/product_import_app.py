@@ -272,14 +272,20 @@ class ProductImportApp(tk.Tk):
         self.settings_status.configure(text="Проверяю подключение...")
         threading.Thread(target=self._test_connection_in_background, daemon=True).start()
 
+    def _show_message(self, ok: bool, title: str, message: str) -> None:
+        if ok:
+            self.after(0, messagebox.showinfo, title, message)
+        else:
+            self.after(0, messagebox.showerror, title, message)
+
+    def _finish_connection_test(self, ok: bool, message: str) -> None:
+        self.settings_status.configure(text=message)
+        self._show_message(ok, "Подключение работает" if ok else "Проверка не прошла", message)
+        self.test_connection_button.configure(state="normal")
+
     def _test_connection_in_background(self) -> None:
         ok, message = test_wordpress_connection(self._collect_settings())
-        self.after(0, self.settings_status.configure, {"text": message})
-        if ok:
-            self.after(0, messagebox.showinfo, "Подключение работает", message)
-        else:
-            self.after(0, messagebox.showerror, "Проверка не прошла", message)
-        self.after(0, self.test_connection_button.configure, {"state": "normal"})
+        self.after(0, self._finish_connection_test, ok, message)
 
     def _append_log(self, text: str) -> None:
         self.log.insert("end", text + "\n")
@@ -290,6 +296,31 @@ class ProductImportApp(tk.Tk):
         self.log.delete("1.0", "end")
         thread = threading.Thread(target=self._convert_in_background, daemon=True)
         thread.start()
+
+    def _finish_conversion_success(
+        self,
+        products: int,
+        publication_status: str,
+        output_path: Path,
+        manifest_path: Path,
+        update_source_status: bool,
+        missing: int,
+    ) -> None:
+        self._append_log(f"Готово. Товаров обработано: {products}")
+        self._append_log(f"Режим листинга: {publication_status}")
+        self._append_log(f"CSV: {output_path}")
+        self._append_log(f"Manifest: {manifest_path}")
+        if update_source_status:
+            self._append_log("Excel обновлён: status, status_date, publish_mode")
+        if missing:
+            self._append_log(f"Проблем с файлами: {missing}. Смотри manifest.")
+        self._show_message(True, "Готово", "CSV и manifest созданы.")
+        self.run_button.configure(state="normal")
+
+    def _finish_conversion_error(self, error: Exception) -> None:
+        self._append_log(f"Ошибка: {error}")
+        self._show_message(False, "Ошибка", str(error))
+        self.run_button.configure(state="normal")
 
     def _convert_in_background(self) -> None:
         try:
@@ -315,20 +346,18 @@ class ProductImportApp(tk.Tk):
                 update_source_status=update_source_status,
             )
 
-            self.after(0, self._append_log, f"Готово. Товаров обработано: {products}")
-            self.after(0, self._append_log, f"Режим листинга: {publication_status}")
-            self.after(0, self._append_log, f"CSV: {output_path}")
-            self.after(0, self._append_log, f"Manifest: {manifest_path}")
-            if update_source_status:
-                self.after(0, self._append_log, "Excel обновлён: status, status_date, publish_mode")
-            if missing:
-                self.after(0, self._append_log, f"Проблем с файлами: {missing}. Смотри manifest.")
-            self.after(0, messagebox.showinfo, "Готово", "CSV и manifest созданы.")
+            self.after(
+                0,
+                self._finish_conversion_success,
+                products,
+                publication_status,
+                output_path,
+                manifest_path,
+                update_source_status,
+                missing,
+            )
         except Exception as error:
-            self.after(0, self._append_log, f"Ошибка: {error}")
-            self.after(0, messagebox.showerror, "Ошибка", str(error))
-        finally:
-            self.after(0, self.run_button.configure, {"state": "normal"})
+            self.after(0, self._finish_conversion_error, error)
 
 
 if __name__ == "__main__":

@@ -39,3 +39,11 @@
 - Files touched: `README.md`, `TASKS.md`, `CHANGELOG.md`, `.gitignore`, `scripts/product_import_app.py`, `tests/test_product_import_app_settings.py`
 - How verified: `python -m unittest discover -s .\tests` passed; read-only `ast.parse` syntax check passed.
 - Risks: Settings are stored locally in `config/site_settings.json`; keep that file private.
+
+## 2026-05-31 - Double-click app launcher
+
+- Date: 2026-05-31
+- What changed: Added `Open Product Import App.vbs` for launching the desktop app without a visible command prompt, kept the `.cmd` launcher as a diagnostic fallback, and documented the preferred launcher.
+- Files touched: `Open Product Import App.vbs`, `Start Product Import App.cmd`, `README.md`, `START_HERE.md`, `TASKS.md`, `CHANGELOG.md`
+- How verified: `python -m unittest discover -s .\tests` passed; read-only `ast.parse` syntax check passed; `product_import_app` imported successfully.
+- Risks: The launcher still depends on Python being installed and available as `pythonw.exe` or `python.exe`; a later `.exe` build can remove that dependency.
