@@ -56,6 +56,15 @@
 
 ### Task 006
 
+- Status: done
+- Title: Locked workbook status fallback
+- Goal: Avoid failing the whole export when the source Excel workbook cannot be overwritten.
+- What to do: Save status updates to an output copy when the source workbook is locked or permission denied, and report that path in the app log.
+- Files: `README.md`, `TASKS.md`, `CHANGELOG.md`, `scripts/product_import_app.py`, `scripts/wp_excel_to_woocommerce_csv.py`, `tests/test_wp_excel_to_woocommerce_csv.py`
+- How to verify: Run `python -m unittest discover -s .\tests`.
+
+### Task 007
+
 - Status: open
 - Title: Upload files to WordPress automatically
 - Goal: Upload listing images and ZIP files to WordPress, then create/update products through WooCommerce API.

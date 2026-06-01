@@ -304,6 +304,8 @@ class ProductImportApp(tk.Tk):
         output_path: Path,
         manifest_path: Path,
         update_source_status: bool,
+        status_workbook_path: Path | None,
+        status_saved_to_source: bool,
         missing: int,
     ) -> None:
         self._append_log(f"Готово. Товаров обработано: {products}")
@@ -311,7 +313,10 @@ class ProductImportApp(tk.Tk):
         self._append_log(f"CSV: {output_path}")
         self._append_log(f"Manifest: {manifest_path}")
         if update_source_status:
-            self._append_log("Excel обновлён: status, status_date, publish_mode")
+            if status_saved_to_source:
+                self._append_log("Excel обновлён: status, status_date, publish_mode")
+            elif status_workbook_path:
+                self._append_log(f"Исходный Excel был недоступен для записи. Обновлённая копия: {status_workbook_path}")
         if missing:
             self._append_log(f"Проблем с файлами: {missing}. Смотри manifest.")
         self._show_message(True, "Готово", "CSV и manifest созданы.")
@@ -336,7 +341,7 @@ class ProductImportApp(tk.Tk):
             if not input_path.exists():
                 raise FileNotFoundError(f"Excel-файл не найден: {input_path}")
 
-            products, missing = convert_workbook(
+            result = convert_workbook(
                 input_path=input_path,
                 output_path=output_path,
                 manifest_path=manifest_path,
@@ -349,12 +354,14 @@ class ProductImportApp(tk.Tk):
             self.after(
                 0,
                 self._finish_conversion_success,
-                products,
+                result.product_count,
                 publication_status,
                 output_path,
                 manifest_path,
                 update_source_status,
-                missing,
+                result.status_workbook_path,
+                result.status_saved_to_source,
+                result.missing_downloads,
             )
         except Exception as error:
             self.after(0, self._finish_conversion_error, error)

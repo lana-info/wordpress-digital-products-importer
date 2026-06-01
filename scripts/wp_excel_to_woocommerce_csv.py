@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import csv
 import sys
+from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -108,6 +109,18 @@ MANIFEST_COLUMNS = [
 
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
 ARCHIVE_EXTENSIONS = {".zip"}
+
+
+@dataclass(frozen=True)
+class ConversionResult:
+    product_count: int
+    missing_downloads: int
+    status_workbook_path: Path | None = None
+    status_saved_to_source: bool = False
+
+    def __iter__(self):
+        yield self.product_count
+        yield self.missing_downloads
 
 
 def normalize_header(value: Any) -> str:
@@ -297,8 +310,13 @@ def convert_workbook(
     download_base_url: str | None = None,
     publication_status: str = "publish",
     update_source_status: bool = False,
-) -> tuple[int, int]:
-    workbook = load_workbook(input_path, data_only=True)
+) -> ConversionResult:
+    try:
+        workbook = load_workbook(input_path, data_only=True)
+    except PermissionError as error:
+        raise PermissionError(
+            f"Excel-файл недоступен для чтения: {input_path}. Закройте файл в Excel и попробуйте снова."
+        ) from error
     sheet = workbook[sheet_name] if sheet_name else workbook.active
     rows = list(sheet.iter_rows(values_only=True))
     if not rows:
@@ -486,10 +504,24 @@ def convert_workbook(
             )
             product_count += 1
 
+    status_workbook_path = None
+    status_saved_to_source = False
     if update_source_status:
-        update_workbook_status(input_path, sheet_name, "CSV_READY", publication_status)
+        status_workbook_path = update_workbook_status(
+            input_path=input_path,
+            sheet_name=sheet_name,
+            status_value="CSV_READY",
+            publication_status=publication_status,
+            fallback_path=output_path.with_name(f"{input_path.stem}_with_status.xlsx"),
+        )
+        status_saved_to_source = status_workbook_path == input_path
 
-    return product_count, missing_downloads
+    return ConversionResult(
+        product_count=product_count,
+        missing_downloads=missing_downloads,
+        status_workbook_path=status_workbook_path,
+        status_saved_to_source=status_saved_to_source,
+    )
 
 
 def find_or_create_column(sheet: Any, header: str, after_column: int | None = None) -> int:
@@ -511,7 +543,8 @@ def update_workbook_status(
     sheet_name: str | None,
     status_value: str,
     publication_status: str,
-) -> None:
+    fallback_path: Path | None = None,
+) -> Path:
     workbook = load_workbook(input_path)
     sheet = workbook[sheet_name] if sheet_name else workbook.active
     headers = [as_text(sheet.cell(1, column).value) for column in range(1, sheet.max_column + 1)]
@@ -534,7 +567,15 @@ def update_workbook_status(
         sheet.cell(row_number, status_column).value = status_value
         sheet.cell(row_number, date_column).value = now_text
         sheet.cell(row_number, mode_column).value = publication_status
-    workbook.save(input_path)
+    try:
+        workbook.save(input_path)
+        return input_path
+    except PermissionError:
+        if fallback_path is None:
+            raise
+        fallback_path.parent.mkdir(parents=True, exist_ok=True)
+        workbook.save(fallback_path)
+        return fallback_path
 
 
 def build_parser() -> argparse.ArgumentParser:

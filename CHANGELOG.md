@@ -47,3 +47,11 @@
 - Files touched: `Open Product Import App.vbs`, `Start Product Import App.cmd`, `README.md`, `START_HERE.md`, `TASKS.md`, `CHANGELOG.md`
 - How verified: `python -m unittest discover -s .\tests` passed; read-only `ast.parse` syntax check passed; `product_import_app` imported successfully.
 - Risks: The launcher still depends on Python being installed and available as `pythonw.exe` or `python.exe`; a later `.exe` build can remove that dependency.
+
+## 2026-06-01 - Locked Excel fallback
+
+- Date: 2026-06-01
+- What changed: When the source workbook cannot be overwritten during status updates, the app now saves an updated copy to the output folder instead of failing the export.
+- Files touched: `README.md`, `TASKS.md`, `CHANGELOG.md`, `scripts/product_import_app.py`, `scripts/wp_excel_to_woocommerce_csv.py`, `tests/test_wp_excel_to_woocommerce_csv.py`
+- How verified: `python -m unittest discover -s .\tests` passed; read-only `ast.parse` syntax check passed.
+- Risks: If the source workbook cannot even be read, the user still needs to close Excel or fix file permissions.

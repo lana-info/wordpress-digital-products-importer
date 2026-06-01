@@ -4,8 +4,10 @@ import csv
 import unittest
 from pathlib import Path
 from sys import path as sys_path
+from unittest.mock import patch
 
 from openpyxl import Workbook, load_workbook
+from openpyxl.workbook.workbook import Workbook as OpenpyxlWorkbook
 
 sys_path.insert(0, str(Path(__file__).resolve().parents[1]))
 
@@ -247,6 +249,61 @@ class ConvertWorkbookTest(unittest.TestCase):
             self.assertEqual(updated_sheet.cell(2, mode_col).value, "draft")
         finally:
             for path in [input_path, output_path, manifest_path, image_path, zip_path]:
+                try:
+                    if path.exists():
+                        path.unlink()
+                except PermissionError:
+                    pass
+
+    def test_status_update_falls_back_to_output_copy_when_source_is_locked(self) -> None:
+        repo_root = Path(__file__).resolve().parents[1]
+        output_dir = repo_root / "output"
+        input_path = output_dir / "__locked_source.xlsx"
+        output_path = output_dir / "__locked_source.csv"
+        manifest_path = output_dir / "__locked_source_manifest.csv"
+        fallback_path = output_dir / "__locked_source_with_status.xlsx"
+
+        for path in [input_path, output_path, manifest_path, fallback_path]:
+            try:
+                if path.exists():
+                    path.unlink()
+            except PermissionError:
+                pass
+
+        workbook = Workbook()
+        sheet = workbook.active
+        sheet.append(["title", "status"])
+        sheet.append(["Locked Source Product", ""])
+        workbook.save(input_path)
+
+        original_save = OpenpyxlWorkbook.save
+
+        def save_with_locked_source(self, filename):
+            if Path(filename) == input_path:
+                raise PermissionError("locked")
+            return original_save(self, filename)
+
+        try:
+            with patch.object(OpenpyxlWorkbook, "save", save_with_locked_source):
+                result = convert_workbook(
+                    input_path=input_path,
+                    output_path=output_path,
+                    manifest_path=manifest_path,
+                    update_source_status=True,
+                )
+
+            self.assertEqual(result.product_count, 1)
+            self.assertFalse(result.status_saved_to_source)
+            self.assertEqual(result.status_workbook_path, fallback_path)
+            self.assertTrue(fallback_path.exists())
+
+            updated = load_workbook(fallback_path)
+            updated_sheet = updated.active
+            headers = [updated_sheet.cell(1, column).value for column in range(1, updated_sheet.max_column + 1)]
+            status_col = headers.index("status") + 1
+            self.assertEqual(updated_sheet.cell(2, status_col).value, "CSV_READY")
+        finally:
+            for path in [input_path, output_path, manifest_path, fallback_path]:
                 try:
                     if path.exists():
                         path.unlink()
